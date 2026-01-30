@@ -8,10 +8,6 @@ from utils.http import build_retry_session
 
 
 class KapaliCarsiApilunaProvider(PriceProvider):
-    """
-    Kapalıçarşı JSON (anahtarsız) - bid/ask yakalamaya çalışır, yoksa last kullanır.
-    Base URL: https://kapalicarsi.apiluna.org/  :contentReference[oaicite:3]{index=3}
-    """
     name = "kapalicarsi_apiluna"
 
     def __init__(self, timeout_s: int = 10):
@@ -44,7 +40,7 @@ class KapaliCarsiApilunaProvider(PriceProvider):
 
         return self._to_dec(bid), self._to_dec(ask)
 
-    def fetch_all(self) -> List[dict]:
+    def _fetch_items(self) -> List[dict]:
         r = self.session.get("https://kapalicarsi.apiluna.org/", timeout=getattr(self.session, "request_timeout_s", 10))
         r.raise_for_status()
         j = r.json()
@@ -64,7 +60,7 @@ class KapaliCarsiApilunaProvider(PriceProvider):
 
     def get_prices_try(self, assets: List[str]) -> Dict[str, Decimal]:
         want = set(assets)
-        items = self.fetch_all()
+        items = self._fetch_items()
         out: Dict[str, Decimal] = {}
 
         def put(asset: str, keywords: List[str]):
@@ -74,18 +70,11 @@ class KapaliCarsiApilunaProvider(PriceProvider):
             bid, ask = self._read_bid_ask(it)
             out[asset] = (bid + ask) / Decimal("2")
 
-        # Gram altın / gümüş
         if "XAU_G" in want:
-            put("XAU_G", ["gram alt", "gram-alt", "gramalt", "altın", "altin"])
+            put("XAU_G", ["gram alt", "gramalt", "altın", "altin"])
         if "XAG_G" in want:
             put("XAG_G", ["gram güm", "gram gum", "gümüş", "gumus", "silver"])
 
-        # Döviz (istersen buradan da alır; ama FX için frankfurter daha temiz)
-        if "USDTRY" in want:
-            put("USDTRY", ["usd"])
-        if "EURTRY" in want:
-            put("EURTRY", ["eur"])
-
         if not out:
-            raise ProviderError("Kapalıçarşı: hiçbir varlık bulunamadı")
+            raise ProviderError("Kapalıçarşı: nothing matched")
         return out
