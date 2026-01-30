@@ -295,7 +295,6 @@ with tabs[5]:
     metals_fallback = st.selectbox("Metals Fallback", ["manual","metals_dev","kapalicarsi_apiluna"], index=["manual","metals_dev","kapalicarsi_apiluna"].index(settings.get("metals_fallback","manual")))
     copper_provider = st.selectbox("Copper Provider", ["kitco","manual"], index=["kitco","manual"].index(settings.get("copper_provider","kitco")))
    if st.button("✅ Kaydet", key="btn_tx_save"):
-
         with SessionLocal() as db:
             set_setting(db, "update_interval_min", str(int(update_interval)))
             set_setting(db, "pnl_alert_threshold_try", str(Decimal(str(pnl_thr))))
