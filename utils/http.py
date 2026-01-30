@@ -1,38 +1,54 @@
 from __future__ import annotations
 
-import time
+from dataclasses import dataclass
 from typing import Optional
 
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+
+@dataclass
+class _SessionWithTimeout(requests.Session):
+    """requests.Session + default timeout taşıyan hafif wrapper."""
+    request_timeout_s: int = 10
+
+
 def build_retry_session(
-    retries: int = 3,
-    backoff_factor: float = 0.7,
-    status_forcelist: tuple[int, ...] = (429, 500, 502, 503, 504),
     timeout_s: int = 10,
+    total_retries: int = 3,
+    backoff_factor: float = 0.8,
+    status_forcelist: Optional[tuple[int, ...]] = (429, 500, 502, 503, 504),
 ) -> requests.Session:
-    \"\"\"Requests Session with retry + backoff. Use `request_json` helper.\"\"\"
-    session = requests.Session()
+    """
+    Retry + backoff’lu requests session döndürür.
+    - timeout: her request için default timeout (saniye)
+    - retry: total_retries kadar tekrar
+    """
+    s = _SessionWithTimeout()
+    s.request_timeout_s = timeout_s
+
     retry = Retry(
-        total=retries,
-        read=retries,
-        connect=retries,
-        status=retries,
+        total=total_retries,
+        connect=total_retries,
+        read=total_retries,
+        status=total_retries,
         backoff_factor=backoff_factor,
         status_forcelist=status_forcelist,
         allowed_methods=frozenset(["GET", "POST"]),
         raise_on_status=False,
+        respect_retry_after_header=True,
     )
-    adapter = HTTPAdapter(max_retries=retry, pool_connections=10, pool_maxsize=10)
-    session.mount("https://", adapter)
-    session.mount("http://", adapter)
-    session.request_timeout_s = timeout_s  # type: ignore[attr-defined]
-    return session
 
-def request_json(session: requests.Session, url: str, **kwargs):
-    timeout = kwargs.pop("timeout", getattr(session, "request_timeout_s", 10))
-    r = session.get(url, timeout=timeout, **kwargs)
-    r.raise_for_status()
-    return r.json()
+    adapter = HTTPAdapter(max_retries=retry, pool_connections=20, pool_maxsize=20)
+    s.mount("http://", adapter)
+    s.mount("https://", adapter)
+
+    # (Opsiyonel) ortak headers
+    s.headers.update(
+        {
+            "User-Agent": "YatirimTakipTR/6 (+https://example.local)",
+            "Accept": "application/json,text/plain,*/*",
+        }
+    )
+    return s
