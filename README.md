@@ -1,4 +1,4 @@
-# Yatırım Takip Sistemi v5 (Türkiye/TRY) — Streamlit + Background Service
+# Yatırım Takip Sistemi v6 (Türkiye/TRY) — Streamlit + Background Service
 
 Bu sürüm **tam otomatik + zengin özellik** hedefiyle güçlendirildi:
 - Servis Streamlit'ten bağımsız çalışır (APScheduler).
