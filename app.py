@@ -217,30 +217,51 @@ with tabs[0]:
 
 with tabs[1]:
     st.subheader("İşlem Ekle")
-    col1,col2 = st.columns(2)
-    with col1:
-        asset = st.selectbox("Varlık", list(ASSETS_META.keys()), format_func=asset_label)
-        side = st.selectbox("İşlem", ["BUY","SELL"], format_func=lambda x: "ALIŞ" if x=="BUY" else "SATIŞ")
-        qty = st.text_input("Miktar", value="0")
-    with col2:
-        unit_price = st.text_input("Birim Fiyat (TRY)", value="0")
-        fee = st.text_input("Fee (TRY)", value="0")
-        note = st.text_input("Not", value="")
-    if st.button("✅ Kaydet", key="btn_tx_save"):
-        try:
-            qty_d = D(qty); up_d = D(unit_price); fee_d = D(fee)
-            if qty_d <= 0 or up_d <= 0 or fee_d < 0:
-                raise ValueError("Miktar ve fiyat pozitif olmalı; fee negatif olamaz.")
-            # simulate stock check
-            tmp = tx_df.copy()
-            tmp.loc[len(tmp)] = {"id":0,"ts":iso_now_tr(),"asset":asset,"side":side,"qty":str(qty_d),"unit_price":str(up_d),"fee":str(fee_d),"currency":"TRY","note":note}
-            compute_inventory_and_pnl(tmp, price_map)
-            with SessionLocal() as db:
-                db.add(Transaction(ts=iso_now_tr(), asset=asset, side=side, qty=str(qty_d), unit_price=str(up_d), fee=str(fee_d), currency="TRY", note=note or None))
-                db.commit()
-            st.success("Kaydedildi. Sayfayı yenile.")
-        except Exception as e:
-            st.error(f"Hata: {e}")
+
+    auto_price = st.toggle(
+        "Otomatik fiyat kullan (fiziki piyasa alış/satış)",
+        value=True,
+        key="toggle_auto_price"
+    )
+
+    asset = st.selectbox(
+        "Varlık",
+        list(ASSETS_META.keys()),
+        format_func=asset_label,
+        key="select_asset"
+    )
+
+    side = st.selectbox(
+        "İşlem",
+        ["BUY", "SELL"],
+        format_func=lambda x: "ALIŞ" if x == "BUY" else "SATIŞ",
+        key="select_side"
+    )
+
+    qty = st.text_input(
+        "Miktar (metaller: gram, USD/EUR: adet)",
+        value="0",
+        key="input_qty"
+    )
+
+    fee = st.text_input(
+        "Fee / Komisyon (TRY)",
+        value="0",
+        key="input_fee"
+    )
+
+    note = st.text_input(
+        "Not (opsiyonel)",
+        value="",
+        key="input_note"
+    )
+
+    unit_price_manual = st.text_input(
+        "Birim Fiyat (TRY) — (auto kapalıysa zorunlu)",
+        value="0",
+        disabled=auto_price,
+        key="input_unit_price"
+    )
 
 with tabs[2]:
     st.subheader("İşlem Geçmişi")
@@ -294,18 +315,37 @@ with tabs[5]:
     metals_primary = st.selectbox("Metals Primary", ["kapalicarsi_apiluna","metals_dev","manual"], index=["kapalicarsi_apiluna","metals_dev","manual"].index(settings.get("metals_primary","kapalicarsi_apiluna")))
     metals_fallback = st.selectbox("Metals Fallback", ["manual","metals_dev","kapalicarsi_apiluna"], index=["manual","metals_dev","kapalicarsi_apiluna"].index(settings.get("metals_fallback","manual")))
     copper_provider = st.selectbox("Copper Provider", ["kitco","manual"], index=["kitco","manual"].index(settings.get("copper_provider","kitco")))
-   if st.button("✅ Kaydet", key="btn_tx_save"):
-        with SessionLocal() as db:
-            set_setting(db, "update_interval_min", str(int(update_interval)))
-            set_setting(db, "pnl_alert_threshold_try", str(Decimal(str(pnl_thr))))
-            set_setting(db, "fx_primary", fx_primary)
-            set_setting(db, "fx_fallback", fx_fallback)
-            set_setting(db, "metals_primary", metals_primary)
-            set_setting(db, "metals_fallback", metals_fallback)
-            set_setting(db, "copper_provider", copper_provider)
-            db.commit()
-        st.success("Kaydedildi. Interval değiştiyse servisi restart et.")
+    if st.button("✅ Kaydet", key="btn_tx_save"):
+        try:
+            qty_d = D(qty)
+            fee_d = D(fee)
 
+            if qty_d <= 0 or fee_d < 0:
+                raise ValueError("Miktar pozitif olmalı; fee negatif olamaz.")
+
+            if auto_price:
+                q = qmap.get(asset)
+                if not q:
+                    raise ValueError("Bu varlık için fiyat yok.")
+                unit_price_d = q["ask"] if side == "BUY" else q["bid"]
+            else:
+                unit_price_d = D(unit_price_manual)
+
+            insert_tx(
+                db=SessionLocal(),
+                asset=asset,
+                side=side,
+                qty=qty_d,
+                unit_price=unit_price_d,
+                fee=fee_d,
+                note=note or None,
+            )
+
+            st.success("İşlem kaydedildi.")
+            st.rerun()
+
+        except Exception as e:
+            st.error(f"Kayıt hatası: {e}")
 with tabs[6]:
     st.subheader("Servis / Log")
     st.code(f"DB: {get_db_path()}\nServis: python service/run_service.py\nLog: logs/service.log")
