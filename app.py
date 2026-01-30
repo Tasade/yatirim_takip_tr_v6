@@ -226,7 +226,7 @@ with tabs[1]:
         unit_price = st.text_input("Birim Fiyat (TRY)", value="0")
         fee = st.text_input("Fee (TRY)", value="0")
         note = st.text_input("Not", value="")
-    if st.button("Kaydet"):
+    if st.button("✅ Kaydet", key="btn_tx_save"):
         try:
             qty_d = D(qty); up_d = D(unit_price); fee_d = D(fee)
             if qty_d <= 0 or up_d <= 0 or fee_d < 0:
@@ -294,7 +294,8 @@ with tabs[5]:
     metals_primary = st.selectbox("Metals Primary", ["kapalicarsi_apiluna","metals_dev","manual"], index=["kapalicarsi_apiluna","metals_dev","manual"].index(settings.get("metals_primary","kapalicarsi_apiluna")))
     metals_fallback = st.selectbox("Metals Fallback", ["manual","metals_dev","kapalicarsi_apiluna"], index=["manual","metals_dev","kapalicarsi_apiluna"].index(settings.get("metals_fallback","manual")))
     copper_provider = st.selectbox("Copper Provider", ["kitco","manual"], index=["kitco","manual"].index(settings.get("copper_provider","kitco")))
-    if st.button("Kaydet"):
+   if st.button("✅ Kaydet", key="btn_tx_save"):
+
         with SessionLocal() as db:
             set_setting(db, "update_interval_min", str(int(update_interval)))
             set_setting(db, "pnl_alert_threshold_try", str(Decimal(str(pnl_thr))))
