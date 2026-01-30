@@ -10,7 +10,6 @@ from urllib3.util.retry import Retry
 
 @dataclass
 class _SessionWithTimeout(requests.Session):
-    """requests.Session + default timeout taşıyan hafif wrapper."""
     request_timeout_s: int = 10
 
 
@@ -20,11 +19,6 @@ def build_retry_session(
     backoff_factor: float = 0.8,
     status_forcelist: Optional[tuple[int, ...]] = (429, 500, 502, 503, 504),
 ) -> requests.Session:
-    """
-    Retry + backoff’lu requests session döndürür.
-    - timeout: her request için default timeout (saniye)
-    - retry: total_retries kadar tekrar
-    """
     s = _SessionWithTimeout()
     s.request_timeout_s = timeout_s
 
@@ -44,10 +38,9 @@ def build_retry_session(
     s.mount("http://", adapter)
     s.mount("https://", adapter)
 
-    # (Opsiyonel) ortak headers
     s.headers.update(
         {
-            "User-Agent": "YatirimTakipTR/6 (+https://example.local)",
+            "User-Agent": "YatirimTakipTR/6",
             "Accept": "application/json,text/plain,*/*",
         }
     )
