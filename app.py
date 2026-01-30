@@ -15,6 +15,7 @@ from utils.decimal import D, q2, q4
 from utils.logging import setup_logging
 from utils.time import iso_now_tr
 
+
 # ✅ Warmup için router
 from providers.router import ProviderRouter
 
@@ -248,6 +249,38 @@ def warmup_prices_if_missing():
 # ---------------- UI ----------------
 st.set_page_config(page_title="Yatırım Takip (TR)", layout="wide")
 init_db(seed=False)
+def warmup_prices_if_missing():
+    try:
+        with SessionLocal() as db:
+            cnt = db.execute(select(func.count(Price.id))).scalar() or 0
+            if cnt == 0:
+                missing = list(ASSETS_META.keys())
+            else:
+                existing = set(pd.read_sql(text("SELECT DISTINCT asset FROM prices"), db.bind)["asset"].tolist())
+                missing = [a for a in ASSETS_META.keys() if a not in existing]
+
+        if not missing:
+            return
+
+        router = ProviderRouter(timeout_s=10)
+        ts = iso_now_tr()
+        quotes, sources = router.get_all_quotes_try(missing, manual_prices=None)
+
+        with SessionLocal() as db:
+            wrote = False
+            for a in missing:
+                if a in quotes:
+                    mid = quotes[a]["mid"]
+                    db.add(Price(ts=ts, asset=a, price=str(mid), currency="TRY",
+                                 source=sources.get(a, "warmup"), is_stale=0, error_msg=None))
+                    wrote = True
+            if wrote:
+                db.commit()
+    except Exception as e:
+        logger.warning(f"Warmup failed (ignored): {e}")
+
+with st.spinner("İlk açılış fiyatları çekiliyor..."):
+    warmup_prices_if_missing()
 
 # ✅ İlk açılışta fiyatlar boşsa doldur
 with st.spinner("İlk açılış fiyatları çekiliyor..."):
