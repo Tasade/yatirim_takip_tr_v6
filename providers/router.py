@@ -6,7 +6,7 @@ from typing import Dict, List, Tuple
 from providers.base import ProviderError
 from providers.fx_frankfurter import FrankfurterFXProvider
 from providers.metals_kapalicarsi_apiluna import KapaliCarsiApilunaProvider
-from providers.copper_stooq import CopperStooqProvider, LB_TO_GRAM
+
 
 
 class ProviderRouter:
